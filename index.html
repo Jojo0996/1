@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>普通拼 全屏截图确保1920x1080</title>
+
+    <!-- CSS 样式内嵌 -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f2f4f7, #e3e9f2);
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 40px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 32px;
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 24px;
+            color: #555;
+            margin: 20px 0;
+        }
+
+        .image-switcher {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .image-switcher button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .image-switcher button:hover {
+            background-color: #45a049;
+        }
+
+        .thumbnail-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .thumbnail-item {
+            position: relative;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .thumbnail-item.selected {
+            border-color: #007bff;
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .thumbnail-item input {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+
+        .preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+            transition: transform 0.3s ease;
+        }
+
+        .thumbnail-item:hover .preview-img {
+            transform: scale(1.1);
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .result-section {
+            text-align: center;
+        }
+
+        canvas {
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .file-input-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        input[type="file"] {
+            background-color: #f1f1f1;
+            padding: 12px 20px;
+            border-radius: 6px;
+            border: 2px solid #ddd;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            border-color: #007bff;
+            background-color: #e9f5ff;
+        }
+
+        .thumbnail-grid img {
+            border-radius: 8px;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .thumbnail-grid img:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>多图片分割拼接工具</h1>
+        
+        <!-- 第一步：上传多张图片 -->
+        <div>
+            <h2>第一步：上传多张1920×1080图片</h2>
+            <input type="file" id="uploadInput" accept="image/*" multiple>
+            <div id="originalPreview" class="hidden"></div>
+        </div>
+
+        <!-- 第二步：选择裁剪区域 -->
+        <div id="cropSection" class="hidden">
+            <h2>第二步：选择需要拼接的区域</h2>
+            <div class="image-switcher">
+                <button onclick="switchImage(-1)">上一张</button>
+                <span id="currentImageInfo">图片 1 / 1</span>
+                <button onclick="switchImage(1)">下一张</button>
+            </div>
+            <div class="thumbnail-grid" id="thumbnailContainer"></div>
+            <button onclick="mergeSelected()">开始拼接</button>
+        </div>
+
+        <!-- 第三步：拼接结果 -->
+        <div id="resultSection" class="hidden">
+            <h2>第三步：拼接结果</h2>
+            <canvas id="mergedCanvas"></canvas>
+            <button onclick="downloadResult()">下载拼接结果</button>
+        </div>
+    </div>
+
+    <script>
+        // 定义12个裁剪区域
+        const regions = [
+            [493, 204, 758, 348],   // 1
+            [762, 204, 1026, 348],  // 2
+            [1031, 204, 1295, 348], // 3
+            [493, 404, 758, 548],   // 4
+            [762, 404, 1026, 548],  // 5
+            [1031, 404, 1295, 548], // 6
+            [493, 604, 758, 748],   // 7
+            [762, 604, 1026, 748],  // 8
+            [1031, 604, 1295, 748], // 9
+            [493, 805, 758, 949],   // 10
+            [762, 805, 1026, 949],  // 11
+            [1031, 805, 1295, 949]  // 12
+        ];
+
+        let selectedThumbnails = []; // 存储所有选中的裁剪区域
+        let images = []; // 存储所有上传的图片
+        let currentImageIndex = 0; // 当前显示的图片索引
+
+        // 图片上传处理
+        document.getElementById('uploadInput').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            // 清空之前的图片数据
+            images = [];
+            selectedThumbnails = [];
+            currentImageIndex = 0;
+
+            // 加载所有图片
+            Array.from(files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        if (img.width !== 1920 || img.height !== 1080) {
+                            alert(`图片 ${file.name} 不是1920×1080分辨率，请重新上传！`);
+                            return;
+                        }
+                        images.push(img);
+                        if (index === files.length - 1) {
+                            showCropSection();
+                            generateThumbnails();
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        // 生成缩略图
+        function generateThumbnails() {
+            const container = document.getElementById('thumbnailContainer');
+            container.innerHTML = '';
+
+            const currentImage = images[currentImageIndex];
+            regions.forEach((region, index) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = region[2] - region[0];
+                canvas.height = region[3] - region[1];
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(
+                    currentImage,
+                    region[0], region[1],
+                    canvas.width, canvas.height,
+                    0, 0,
+                    canvas.width, canvas.height
+                );
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'thumbnail-item';
+                wrapper.innerHTML = `
+                    <input type="checkbox" data-image-index="${currentImageIndex}" data-region-index="${index}">
+                    <img src="${canvas.toDataURL()}" class="preview-img">
+                `;
+                wrapper.querySelector('input').addEventListener('change', toggleSelection);
+                container.appendChild(wrapper);
+            });
+
+            // 更新图片切换信息
+            document.getElementById('currentImageInfo').textContent = `图片 ${currentImageIndex + 1} / ${images.length}`;
+        }
+
+        // 切换图片
+        function switchImage(direction) {
+            currentImageIndex += direction;
+            if (currentImageIndex < 0) currentImageIndex = images.length - 1;
+            if (currentImageIndex >= images.length) currentImageIndex = 0;
+            generateThumbnails();
+        }
+
+        // 选择缩略图
+        function toggleSelection(e) {
+            const imageIndex = e.target.dataset.imageIndex;
+            const regionIndex = e.target.dataset.regionIndex;
+            const key = `${imageIndex}-${regionIndex}`;
+
+            if (e.target.checked) {
+                selectedThumbnails.push({ imageIndex, regionIndex });
+            } else {
+                selectedThumbnails = selectedThumbnails.filter(item => `${item.imageIndex}-${item.regionIndex}` !== key);
+            }
+        }
+
+        // 拼接图片
+        async function mergeSelected() {
+            if (selectedThumbnails.length === 0) {
+                alert('请至少选择一个区域！');
+                return;
+            }
+
+            // 计算网格布局
+            const gridSize = Math.ceil(Math.sqrt(selectedThumbnails.length));
+            const tileWidth = regions[0][2] - regions[0][0];
+            const tileHeight = regions[0][3] - regions[0][1];
+
+            // 创建最终画布
+            const resultCanvas = document.getElementById('mergedCanvas');
+            resultCanvas.width = tileWidth * gridSize;
+            resultCanvas.height = tileHeight * gridSize;
+            
+            const ctx = resultCanvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, resultCanvas.width, resultCanvas.height);
+
+            // 排列图片
+            selectedThumbnails.forEach((item, index) => {
+                const image = images[item.imageIndex];
+                const region = regions[item.regionIndex];
+
+                const xPos = (index % gridSize) * tileWidth;
+                const yPos = Math.floor(index / gridSize) * tileHeight;
+
+                ctx.drawImage(
+                    image,
+                    region[0], region[1],
+                    region[2] - region[0], region[3] - region[1],
+                    xPos, yPos,
+                    tileWidth, tileHeight
+                );
+            });
+
+            // 显示拼接结果
+            document.getElementById('resultSection').classList.remove('hidden');
+        }
+
+        // 下载拼接结果
+        function downloadResult() {
+            const canvas = document.getElementById('mergedCanvas');
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL();
+            link.download = 'merged_image.png';
+            link.click();
+        }
+
+        // 显示裁剪区域选择界面
+        function showCropSection() {
+            document.getElementById('cropSection').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
